@@ -1,0 +1,9 @@
+Flask
+sentence-transformers 
+chromadb 
+pypdf 
+openai 
+tqdm 
+pandas 
+PyPDF2 
+bert-score
