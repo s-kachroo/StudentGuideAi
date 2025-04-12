@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify
-from prompt_engine import get_chat_response  # our custom method for prompt processing
+from prompt_engine import get_chat_response
 
 app = Flask(__name__)
 
