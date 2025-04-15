@@ -7,13 +7,17 @@ if [ -z "$OPENAI_API_KEY" ]; then
   exit 1
 fi
 
-# Create a virtual environment named "venv"
-echo "1. Creating virtual environment..."
-python3 -m venv venv
+# Check if the "prompt-project" virtual environment already exists.
+if [ ! -d "prompt-project" ]; then
+  echo "1. Creating virtual environment 'prompt-project'..."
+  python3 -m venv prompt-project
+else
+  echo "1. Virtual environment 'prompt-project' already exists."
+fi
 
 # Activate the virtual environment
 echo "2. Activating virtual environment..."
-source venv/bin/activate
+source prompt-project/bin/activate
 
 # Upgrade pip (optional but recommended)
 pip install --upgrade pip

@@ -2,13 +2,13 @@ import os
 import re
 import logging
 from pathlib import Path
-
 import PyPDF2
 from tqdm import tqdm
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 import openai
+from textwrap import dedent
 
 # Set up logging
 logging.basicConfig(level=logging.CRITICAL)
@@ -142,12 +142,12 @@ def generate_answer(query, retrieved_chunks, model="gpt-4o-mini"):
         for doc, meta in zip(retrieved_chunks["documents"][0], retrieved_chunks["metadatas"][0])
     ])
 
-    prompt = f"""
+    prompt = dedent(f"""
         You are a helpful CMU assistant. Answer based ONLY on this context:
         {context}
         Question: {query}
         Answer concisely and cite sources. If unsure, say you don't know.
-        """
+        """)
 
     llm_response = openai.ChatCompletion.create(
         model=model,
