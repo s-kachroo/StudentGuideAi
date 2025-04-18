@@ -12,7 +12,7 @@ For example, a generic chatbot might confidently give the wrong course add deadl
 
 ### Experimentation and RAG Workflow?
 - We have python notebooks in the [folder](./experiments/).
-- [WIP] We are constantly improving our experimentations.
+- [WIP] We're constantly improving our experimentations.
 
 ### How to Run the Project?
 
@@ -24,4 +24,7 @@ For example, a generic chatbot might confidently give the wrong course add deadl
 2. Activate the environment using `` source prompt-project/bin/activate``
 3. Install the necessary dependencies using ``pip install -q -r requirements.txt``
 4. Build the RAG using ``rag.py``
-5. Run the project in the localhost using ``python main.py``
+5. Run the project on localhost using ``python main.py``
+
+### Documentation
+- We have drafted a slideshow [(Click here)](https://docs.google.com/presentation/d/1xJBs_CK4z5W1UstiK5AJD_dHDiSltdr_) and a report [(Click here)](https://docs.google.com/document/d/1qRhkiyXRzB64xOAa9-rwfxL7Ev16P2OIkWXxQu7__P4)  about the project.
