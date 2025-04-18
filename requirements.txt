@@ -7,3 +7,6 @@ tqdm
 pandas 
 PyPDF2 
 bert-score
+ipykernel
+ipywidgets
+torchmetrics
