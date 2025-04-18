@@ -11,7 +11,7 @@ For example, a generic chatbot might confidently give the wrong course add deadl
 3. ``OPENAI_PROJECT_ID=``
 
 ### Experimentation and RAG Workflow?
-- We have python notebooks in the [folder](./ipynb/).
+- We have python notebooks in the [folder](./experiments/).
 - [WIP] We are constantly improving our experimentations.
 
 ### How to Run the Project?
