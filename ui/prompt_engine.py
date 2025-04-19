@@ -1,6 +1,6 @@
 import os
 import openai
-from rag import load_pdf_documents, chunk_documents, get_vector_collection, query_cmu_knowledge
+from rag import get_vector_collection, query_cmu_knowledge
 
 
 def get_chat_response(user_input):

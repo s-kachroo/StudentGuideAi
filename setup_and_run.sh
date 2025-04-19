@@ -1,36 +1,40 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Check if OPENAI_API_KEY is set
-if [ -z "$OPENAI_API_KEY" ]; then
-  echo "Error: The OPENAI_API_KEY environment variable is not set."
-  echo "Please set it using 'export OPENAI_API_KEY=your_api_key_here' and try again."
+# 0. make sure we run from the directory containing this script
+cd "$(dirname "$0")"
+
+# 1. check for OpenAI key
+: "${OPENAI_API_KEY?Error: OPENAI_API_KEY is not set. Please 'export OPENAI_API_KEY=…' and retry.}"
+
+# 2. check for python3
+if ! command -v python3 &>/dev/null; then
+  echo "Error: python3 not found in PATH." >&2
   exit 1
 fi
 
-# Check if the "prompt-project" virtual environment already exists.
-if [ ! -d "prompt-project" ]; then
-  echo "1. Creating virtual environment 'prompt-project'..."
-  python3 -m venv prompt-project
+# 3. create (or reuse) a virtual env in .venv/
+VENV_DIR=".venv"
+if [ ! -d "$VENV_DIR" ]; then
+  echo "Creating virtual environment in $VENV_DIR..."
+  python3 -m venv "$VENV_DIR"
 else
-  echo "1. Virtual environment 'prompt-project' already exists."
+  echo "Using existing virtual environment in $VENV_DIR."
 fi
 
-# Activate the virtual environment
-echo "2. Activating virtual environment..."
-source prompt-project/bin/activate
+# 4. activate and install dependencies
+# shellcheck source=/dev/null
+source "$VENV_DIR/bin/activate"
+python3 -m pip install --upgrade pip setuptools wheel
+echo "Installing requirements…"
+python3 -m pip install -r requirements.txt
 
-# Upgrade pip (optional but recommended)
-pip install --upgrade pip
+# 5. build/update your vector database
+echo "Building/updating RAG vector database…"
+python3 ui/rag.py  # make sure rag.py’s __main__ rebuilds when run directly
 
-# Install required packages from requirements.txt
-echo "3. Installing dependencies from requirements.txt..."
-pip install -q -r requirements.txt
-
-# Build the vector database using the RAG system.
-# This script runs rag.py which should have its __main__ block set to rebuild the database (rebuild=True)
-echo "4. Building the vector database (RAG)..."
-python rag.py
-
-# Start the Flask application by running main.py
-echo "Starting Flask app..."
-python main.py
+# 6. launch your Flask app
+echo "Starting Flask development server…"
+export FLASK_APP=ui/main.py
+export FLASK_ENV=development
+flask run
