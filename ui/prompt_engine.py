@@ -1,6 +1,6 @@
 import os
 import openai
-from rag import get_vector_collection, query_cmu_knowledge
+from rag import create_vector_collection, query_cmu_knowledge
 
 
 def get_chat_response(user_input):
@@ -11,11 +11,12 @@ def get_chat_response(user_input):
     print(f"[INFO] User input: {user_input}")
     
     # Load the existing collection.
-    collection = get_vector_collection(rebuild=False)
+    collection = create_vector_collection(build=False)
     print(f"[INFO] Collection loaded with {len(collection.get()['ids'])} chunks.")
     
     # Query the collection for relevant chunks.
-    result = query_cmu_knowledge(collection, user_input)
+    result = query_cmu_knowledge(rag_collection=collection, user_question=user_input, top_k=3)
+    
     print(f"[INFO] Result: {result}")
     
     return result["answer"]

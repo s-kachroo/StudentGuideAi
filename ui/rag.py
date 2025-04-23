@@ -1,21 +1,28 @@
 import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import re
 import logging
 from pathlib import Path
+import pandas as pd
 import PyPDF2
-from tqdm import tqdm
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 import openai
+from openai import OpenAI
 from textwrap import dedent
+from torchmetrics.text.bert import BERTScore
+import torch
+from tqdm import tqdm
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="tqdm")
 
 # Set up logging
-logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
 
 
-def load_pdf_documents(data_dir="./data"):
+def load_pdf_documents(data_dir):
     """
     Loads all PDF files from the specified directory.
     Returns a list of document dictionaries.
@@ -60,7 +67,7 @@ def clean_document_text(text):
     return text
 
 
-def chunk_documents(documents_data, chunk_size=1000, chunk_overlap=200):
+def chunk_documents(documents_data, chunk_size, chunk_overlap):
     """
     Splits each document's text into chunks (based on words).
     Optionally cleans the text before splitting.
@@ -69,7 +76,7 @@ def chunk_documents(documents_data, chunk_size=1000, chunk_overlap=200):
     chunks_list = []
     for doc in tqdm(documents_data, desc="Chunking documents"):
         text = doc["text"]
-        text = clean_document_text(text)
+        text = clean_document_text(text=text)
         words = text.split()
         # Slide a window over the word list
         for i in range(0, len(words), chunk_size - chunk_overlap):
@@ -89,10 +96,10 @@ def chunk_documents(documents_data, chunk_size=1000, chunk_overlap=200):
     return chunks_list
 
 
-def get_vector_collection(rebuild=False, collection_name="cmu_student_guide", db_path="./chroma_db"):
+def create_vector_collection(build=False, collection_name="cmu_student_guide", db_path="./chroma_db", data_dir="./data", chunk_size=1000, chunk_overlap=200):
     """
     Returns a persistent ChromaDB collection.
-    If rebuild is set to True, PDFs are processed, chunked, and added to the collection;
+    If build is set to True, PDFs are processed, chunked, and added to the collection;
     otherwise, the saved vector database (in ./chroma_db) is loaded.
     """
     client = chromadb.PersistentClient(
@@ -103,10 +110,10 @@ def get_vector_collection(rebuild=False, collection_name="cmu_student_guide", db
         name=collection_name,
         embedding_function=embedding_functions.SentenceTransformerEmbeddingFunction("all-MiniLM-L6-v2")
     )
-    if rebuild:
+    if build:
         # Process PDFs and build the collection.
-        documents = load_pdf_documents("./data")
-        chunks = chunk_documents(documents)
+        documents = load_pdf_documents(data_dir=data_dir)
+        chunks = chunk_documents(documents_data=documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         for i in tqdm(range(0, len(chunks), 100), desc="Indexing documents"):
             batch = chunks[i: i + 100]
             rag_collection.add(
@@ -117,7 +124,7 @@ def get_vector_collection(rebuild=False, collection_name="cmu_student_guide", db
     return rag_collection
 
 
-def retrieve_relevant_chunks(rag_collection, query, top_k=3):
+def retrieve_relevant_chunks(rag_collection, query, top_k):
     """
     Queries the vector DB for the most similar document chunks to the query.
     Returns the raw query results.
@@ -127,12 +134,11 @@ def retrieve_relevant_chunks(rag_collection, query, top_k=3):
         n_results=top_k,
         include=["documents", "metadatas", "distances"]
     )
-    # Optionally, add a similarity score if needed.
     results["scores"] = [1 - distance for distance in results["distances"][0]]
     return results
 
 
-def generate_answer(query, retrieved_chunks, model="gpt-4o-mini"):
+def generate_answer(query, retrieved_chunks, model_name="gpt-4o-mini"):
     """
     Generates an answer by constructing a prompt that includes the retrieved context
     and then calling the OpenAI ChatCompletion API.
@@ -146,11 +152,12 @@ def generate_answer(query, retrieved_chunks, model="gpt-4o-mini"):
         You are a helpful CMU assistant. Answer based ONLY on this context:
         {context}
         Question: {query}
-        Answer concisely and cite sources. If unsure, say you don't know.
+        Please give concise answer with less than 15 words, meaningful, and cite sources, if possible.
         """)
 
-    llm_response = openai.ChatCompletion.create(
-        model=model,
+    client = OpenAI(api_key=openai.api_key)
+    llm_response = client.chat.completions.create(
+        model=model_name,
         messages=[
             {"role": "system", "content": "You are a factual CMU student assistant."},
             {"role": "user", "content": prompt}
@@ -160,18 +167,18 @@ def generate_answer(query, retrieved_chunks, model="gpt-4o-mini"):
     return llm_response.choices[0].message.content
 
 
-def query_cmu_knowledge(rag_collection, user_question, top_k=3):
+def query_cmu_knowledge(rag_collection, user_question, top_k):
     """
     Retrieves document context using the vector DB and generates a final answer.
     Returns a dictionary with the question, answer, and source metadata.
     """
     try:
-        retrieved_chunks = retrieve_relevant_chunks(rag_collection, user_question, top_k)
-        answer = generate_answer(user_question, retrieved_chunks)
+        retrieved_chunks = retrieve_relevant_chunks(rag_collection=rag_collection, query=user_question, top_k=top_k)
+        answer = generate_answer(query=user_question, retrieved_chunks=retrieved_chunks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
         return {
             "question": user_question,
             "answer": answer,
-            "sources": retrieved_chunks["metadatas"][0]
+            "sources": retrieved_chunks['metadatas'][0]
         }
     except Exception as e:
         logger.error(f"Query failed: {str(e)}")
@@ -187,14 +194,14 @@ if __name__ == "__main__":
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
     # Build the vector database manually.
-    print(f"[INFO] Rebuilding the vector database...")
-    collection = get_vector_collection(rebuild=True)
+    print(f"[INFO] Building the vector database...")
+    collection = create_vector_collection(build=True, collection_name="cmu_student_guide", db_path="./chroma_db", data_dir="../data", chunk_size=500, chunk_overlap=300)
     print(f"[INFO] Built the vector database with {len(collection.get()['ids'])} chunks.")
 
     # Run a sample queries to test the system.
     question1 = "What is the deadline to add a course?"
-    response1 = query_cmu_knowledge(collection, question1)
+    response1 = query_cmu_knowledge(rag_collection=collection, user_question=question1, top_k=3)
     print(f"Question: {question1}, Answer: {response1['answer']}")
     question2 = "Who is Cathleen Kisak?"
-    response2 = query_cmu_knowledge(collection, question2)
+    response2 = query_cmu_knowledge(rag_collection=collection, user_question=question2, top_k=3)
     print(f"Question: {question2}, Answer: {response2['answer']}")
